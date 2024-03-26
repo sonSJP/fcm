@@ -76,6 +76,13 @@ class FcmChannel
                 foreach ($partialTokens as $tokens) {
                     $responses[] = $this->sendToFcmMulticast($fcmMessage, $tokens);
                 }
+                if ($responses) {
+                    $tempResponses = head($responses);
+                    $invalidTokens = $tempResponses->invalidTokens();
+                    if ($invalidTokens) {
+                        $this->failedNotificationByInvalidTokens($notifiable, $notification, $invalidTokens);
+                    }   
+                }
             } else {
                 $responses[] = $this->sendToFcm($fcmMessage, $token);
             }
@@ -156,6 +163,28 @@ class FcmChannel
                 'message' => $exception->getMessage(),
                 'exception' => $exception,
                 'token' => $token,
+            ]
+        ));
+    }
+
+    /**
+     * Dispatch failed event by invalid tokens.
+     *
+     * @param  mixed  $notifiable
+     * @param  \Illuminate\Notifications\Notification  $notification
+     * @param  \Throwable  $exception
+     * @param  string|array  $token
+     * @return array|null
+     */
+    protected function failedNotificationByInvalidTokens($notifiable, Notification $notification, $invalidTokens)
+    {
+        return $this->events->dispatch(new NotificationFailed(
+            $notifiable,
+            $notification,
+            self::class,
+            [
+                'message' => 'The registration token is not a valid FCM registration token',
+                'invalidTokens' => $invalidTokens
             ]
         ));
     }
